@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UC Sales 2026 - Smart Reporter</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        :root { --wa-dark: #075e54; --wa-light: #128c7e; --wa-bg: #ece5dd; }
+        body { font-family: -apple-system, sans-serif; background-color: var(--wa-bg); padding: 10px; margin: 0; display: flex; justify-content: center; }
+        .container { max-width: 500px; width: 100%; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 50px; }
+        h2 { text-align: center; color: var(--wa-dark); margin: 0 0 15px 0; }
+        .section-title { background: #f0f0f0; padding: 10px; font-weight: bold; margin-top: 20px; border-left: 5px solid var(--wa-light); font-size: 0.9em; border-radius: 4px; }
+        label { display: block; margin-top: 12px; font-size: 0.8em; font-weight: bold; color: #555; }
+        input, textarea, select { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .row { display: flex; gap: 10px; }
+        .row div { flex: 1; }
+        .total-box { background: #e7f3ef; padding: 12px; margin-top: 10px; border-radius: 8px; font-weight: bold; text-align: right; border: 1px solid #c3e6cb; }
+        button { width: 100%; padding: 16px; margin-top: 10px; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: bold; transition: 0.3s; }
+        .btn-main { background-color: var(--wa-dark); color: white; }
+        .btn-main:disabled { background-color: #ccc; cursor: not-allowed; }
+        .btn-admin { background-color: var(--wa-light); color: white; }
+        .btn-reset { background-color: #757575; color: white; font-size: 13px; }
+
+        /* Full Screen Admin Page Overlay */
+        #adminPage { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 2000; flex-direction: column; overflow-y: auto; }
+        .admin-header { background: var(--wa-dark); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; }
+        .admin-content { padding: 15px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85em; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background: #f4f4f4; color: #333; }
+        .chart-wrap { height: 250px; margin: 20px 0; }
+        .action-btn { padding: 5px 8px; border-radius: 4px; border: none; font-size: 10px; color: white; margin: 2px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="mainApp">
+    <h2>Daily Sales Report</h2>
+    <input type="date" id="date">
+
+    <div class="section-title">💰 1. SALES SUMMARY</div>
+    <div class="row">
+        <div><label>POS Sales</label><input type="number" id="pos" value="0" oninput="calculate()"></div>
+        <div><label>B2B Sales</label><input type="number" id="b2b" value="0" oninput="calculate()"></div>
+    </div>
+    <label>Deposits</label>
+    <input type="number" id="deposits" value="0" oninput="calculate()">
+    <div class="total-box">Sales Total: <span id="tsDisp">0</span></div>
+
+    <div class="section-title">💳 2. COLLECTION DETAILS</div>
+    <div class="row">
+        <div><label>Cash</label><input type="number" id="cash" value="0" oninput="calculate()"></div>
+        <div><label>UPI</label><input type="number" id="upi" value="0" oninput="calculate()"></div>
+    </div>
+    <div class="row">
+        <div><label>Bajaj</label><input type="number" id="bajaj" value="0" oninput="calculate()"></div>
+        <div><label>Card</label><input type="number" id="card" value="0" oninput="calculate()"></div>
+    </div>
+    <label>Prev. Credit Note</label>
+    <input type="number" id="prevCN" value="0" oninput="calculate()">
+    <div class="total-box">Collection Total: <span id="tcDisp">0</span></div>
+
+    <div class="section-title">📉 3. ADJUSTMENT INFO</div>
+    <div class="row">
+        <div><label>CN Issued (RG)</label><input type="number" id="cnRG" value="0"></div>
+        <div><label>B2B Credit Sale</label><input type="number" id="b2bCS" value="0"></div>
+    </div>
+
+    <div class="section-title">📝 4. NOTES (OPTIONAL)</div>
+    <textarea id="notes" rows="2" placeholder="Enter details here..."></textarea>
+
+    <div id="boxGrand" class="total-box" style="background: #075e54; color: white; margin-top: 20px; text-align: center;">
+        ⭐ GRAND TOTAL = <span id="gtDisp">0</span>
+    </div>
+
+    <button class="btn-main" id="mainBtn" onclick="handleExport()">SEND & SAVE 🚀</button>
+    <button class="btn-admin" onclick="openAdmin()">ADMIN VIEW 🛠️</button>
+    <button class="btn-reset" onclick="resetForm()">RESET FORM 🔄</button>
+    <div id="status" style="text-align:center; margin-top:10px; font-weight:bold; color: #777;">Ready to export</div>
+</div>
+
+<div id="adminPage">
+    <div class="admin-header">
+        <span>Admin Dashboard</span>
+        <button onclick="closeAdmin()" style="width: auto; padding: 5px 15px; margin: 0; background: #d32f2f; color: white;">BACK ✖</button>
+    </div>
+    <div class="admin-content" id="pdfArea">
+        <label>Filter Month:</label>
+        <input type="month" id="monthFilter" onchange="loadAdminData()">
+        
+        <div id="adminTableContainer"></div>
+        
+        <div class="chart-wrap">
+            <canvas id="salesChart"></canvas>
+        </div>
+        
+        <button class="btn-admin" onclick="downloadPDF()">DOWNLOAD PDF REPORT 📄</button>
+    </div>
+</div>
+
+<script>
+    // 1. Firebase Config
+    const firebaseConfig = { databaseURL: "https://uc-ds-de9ec-default-rtdb.firebaseio.com/" };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    document.getElementById('date').valueAsDate = new Date();
+    document.getElementById('monthFilter').value = new Date().toISOString().substring(0, 7);
+    
+    let myChart = null;
+    let currentEditKey = null;
+
+    // 2. Main Logic & Validation
+    function calculate() {
+        const pos = +document.getElementById('pos').value || 0;
+        const b2b = +document.getElementById('b2b').value || 0;
+        const dep = +document.getElementById('deposits').value || 0;
+        const ts = pos + b2b + dep;
+        document.getElementById('tsDisp').innerText = ts;
+
+        const cash = +document.getElementById('cash').value || 0;
+        const upi = +document.getElementById('upi').value || 0;
+        const bajaj = +document.getElementById('bajaj').value || 0;
+        const card = +document.getElementById('card').value || 0;
+        const pcn = +document.getElementById('prevCN').value || 0;
+        const tc = cash + upi + bajaj + card + pcn;
+        
+        document.getElementById('tcDisp').innerText = tc;
+        document.getElementById('gtDisp').innerText = tc;
+
+        const btn = document.getElementById('mainBtn');
+        const box = document.getElementById('boxGrand');
+        const status = document.getElementById('status');
+
+        if (ts === tc) {
+            box.style.background = "#075e54";
+            btn.disabled = false;
+            btn.innerText = currentEditKey ? "UPDATE RECORD 🛠️" : "SEND & SAVE 🚀";
+            status.innerText = ts === 0 ? "✅ Ready for 0-Sale entry" : "✅ Totals Balanced";
+            if(currentEditKey) btn.style.background = "#e67e22";
+            else btn.style.background = "#075e54";
+        } else {
+            box.style.background = "#d32f2f";
+            btn.disabled = true;
+            btn.innerText = "⚠️ TOTALS MISMATCH";
+            btn.style.background = "#ccc";
+            status.innerText = `❌ Difference: ${Math.abs(ts - tc)}`;
+        }
+    }
+
+    function handleExport() {
+        const date = document.getElementById('date').value;
+        const ts = document.getElementById('tsDisp').innerText;
+        const tc = document.getElementById('tcDisp').innerText;
+        const notes = document.getElementById('notes').value.trim();
+        const cnRG = document.getElementById('cnRG').value || 0;
+        const b2bCS = document.getElementById('b2bCS').value || 0;
+
+        const payload = {
+            date, pos: document.getElementById('pos').value, b2b: document.getElementById('b2b').value,
+            deposits: document.getElementById('deposits').value, totalSales: ts, 
+            cash: document.getElementById('cash').value, upi: document.getElementById('upi').value, 
+            bajaj: document.getElementById('bajaj').value, card: document.getElementById('card').value, 
+            prevCN: document.getElementById('prevCN').value, totalColl: tc, 
+            cnRG, b2bCS, notes: notes || "None", timestamp: new Date().getTime()
+        };
+
+        const ref = currentEditKey ? db.ref('reports/' + currentEditKey) : db.ref('reports').push();
+
+        ref.set(payload).then(() => {
+            currentEditKey = null;
+            
+            let msg = `📊 DAILY SALES REPORT\n------------------------------\nDate: ${date}\n\n💰 SALES SUMMARY\nPOS Sales: ${payload.pos}\nB2B Sales: ${payload.b2b}\nDeposits: ${payload.deposits}\nTotal Sales = ${ts}\n\n💳 COLLECTION DETAILS\nCash: ${payload.cash}\nUPI: ${payload.upi}\nBajaj: ${payload.bajaj}\nCard: ${payload.card}\nPrev. Credit Note: ${payload.prevCN}\nTotal Collection = ${tc}\n\n📉 ADJUSTMENT INFO\nCN Issued (RG): ${cnRG}\nB2B Credit Sale: ${b2bCS}\n\n⭐ GRAND TOTAL = ${tc}\n`;
+            if (notes) msg += `\n📝 NOTES: ${notes}\n`;
+            msg += `------------------------------`;
+            
+            window.location.href = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+        });
+    }
+
+    // 3. Admin View Functions
+    function openAdmin() {
+        const pin = prompt("Admin PIN:");
+        if (pin !== "admin789") return alert("Wrong PIN");
+        document.getElementById('adminPage').style.display = 'flex';
+        loadAdminData();
+    }
+
+    function closeAdmin() { document.getElementById('adminPage').style.display = 'none'; }
+
+    async function loadAdminData() {
+        const filter = document.getElementById('monthFilter').value;
+        let mPos=0, mB2b=0, mDep=0, mTotal=0;
+        let table = `<table><tr><th>Date</th><th>POS</th><th>B2B</th><th>Dep.</th><th>Total</th><th>Act</th></tr>`;
+        let dailyTotals = {};
+
+        const snapshot = await db.ref('reports').orderByChild('date').once('value');
+        snapshot.forEach(child => {
+            const d = child.val();
+            const key = child.key;
+            if (d.date && d.date.startsWith(filter)) {
+                const p = +d.pos, b = +d.b2b, dep = +d.deposits, t = +d.totalSales;
+                mPos += p; mB2b += b; mDep += dep; mTotal += t;
+                table += `<tr>
+                    <td>${d.date.substring(8)}</td>
+                    <td>${p}</td><td>${b}</td><td>${dep}</td><td><b>${t}</b></td>
+                    <td>
+                        <button class="action-btn" style="background:#128c7e" onclick="triggerEdit('${key}')">✎</button>
+                        <button class="action-btn" style="background:#d32f2f" onclick="triggerDelete('${key}')">✖</button>
+                    </td>
+                </tr>`;
+                dailyTotals[d.date] = t;
+            }
+        });
+
+        table += `<tr style="background:#eee"><td><b>MTD</b></td><td>${mPos}</td><td>${mB2b}</td><td>${mDep}</td><td colspan="2"><b>${mTotal}</b></td></tr></table>`;
+        document.getElementById('adminTableContainer').innerHTML = table;
+        updateChart(dailyTotals);
+    }
+
+    function updateChart(dataMap) {
+        const dates = Object.keys(dataMap).sort().slice(-7);
+        const vals = dates.map(d => dataMap[d]);
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        if (myChart) myChart.destroy();
+        myChart = new Chart(ctx, {
+            type: 'line', 
+            data: { labels: dates.map(d=>d.substring(8)), datasets: [{ label: 'Sale Trend', data: vals, borderColor: '#075e54', fill: true, backgroundColor: 'rgba(7,94,84,0.1)', tension: 0.3 }] },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    async function triggerEdit(key) {
+        const snap = await db.ref('reports/' + key).once('value');
+        const d = snap.val();
+        document.getElementById('date').value = d.date;
+        document.getElementById('pos').value = d.pos;
+        document.getElementById('b2b').value = d.b2b;
+        document.getElementById('deposits').value = d.deposits;
+        document.getElementById('cash').value = d.cash;
+        document.getElementById('upi').value = d.upi;
+        document.getElementById('bajaj').value = d.bajaj;
+        document.getElementById('card').value = d.card;
+        document.getElementById('prevCN').value = d.prevCN;
+        document.getElementById('cnRG').value = d.cnRG || 0;
+        document.getElementById('b2bCS').value = d.b2bCS || 0;
+        document.getElementById('notes').value = d.notes === "None" ? "" : d.notes;
+        
+        currentEditKey = key;
+        closeAdmin();
+        calculate();
+        window.scrollTo(0,0);
+    }
+
+    async function triggerDelete(key) {
+        if(confirm("Delete permanently?")) {
+            await db.ref('reports/' + key).remove();
+            loadAdminData();
+        }
+    }
+
+    async function downloadPDF() {
+        const { jsPDF } = window.jspdf;
+        const canvas = await html2canvas(document.getElementById('pdfArea'), { scale: 2 });
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        pdf.text("Monthly Sales Performance", 15, 10);
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 15, 190, (canvas.height * 190) / canvas.width);
+        pdf.save("UC_Sales_Report.pdf");
+    }
+
+    function resetForm() { if(confirm("Clear form?")) location.reload(); }
+</script>
+</body>
+</html>
