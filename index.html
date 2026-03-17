@@ -187,19 +187,52 @@
     function handleExport() {
         const date = document.getElementById('date').value;
         const payload = {
-            date, pos: document.getElementById('pos').value, b2b: document.getElementById('b2b').value,
-            deposits: document.getElementById('deposits').value, totalSales: document.getElementById('tsDisp').innerText, 
-            cash: document.getElementById('cash').value, upi: document.getElementById('upi').value, 
-            bajaj: document.getElementById('bajaj').value, card: document.getElementById('card').value, 
-            prevCN: document.getElementById('prevCN').value, totalColl: document.getElementById('tcDisp').innerText, 
-            cnRG: document.getElementById('cnRG').value || 0, b2bCS: document.getElementById('b2bCS').value || 0,
-            notes: document.getElementById('notes').value.trim() || "None", timestamp: new Date().getTime()
+            date, 
+            pos: document.getElementById('pos').value, 
+            b2b: document.getElementById('b2b').value,
+            deposits: document.getElementById('deposits').value, 
+            totalSales: document.getElementById('tsDisp').innerText, 
+            cash: document.getElementById('cash').value, 
+            upi: document.getElementById('upi').value, 
+            bajaj: document.getElementById('bajaj').value, 
+            card: document.getElementById('card').value, 
+            prevCN: document.getElementById('prevCN').value, 
+            totalColl: document.getElementById('tcDisp').innerText, 
+            cnRG: document.getElementById('cnRG').value || 0, 
+            b2bCS: document.getElementById('b2bCS').value || 0,
+            notes: document.getElementById('notes').value.trim() || "None", 
+            timestamp: new Date().getTime()
         };
 
         const ref = currentEditKey ? db.ref('reports/' + currentEditKey) : db.ref('reports').push();
         ref.set(payload).then(() => {
             currentEditKey = null;
-            let msg = `📊 SALES REPORT [${date}]\n----------------\nActual (P+B): ${+payload.pos + +payload.b2b}\nGrand Total: ${payload.totalSales}\n----------------`;
+            
+            let msg = `📅 DAILY SALES REPORT
+------------------------------
+Date: ${payload.date}
+
+💰 SALES SUMMARY
+POS Sales: ${payload.pos}
+B2B Sales: ${payload.b2b}
+Deposits: ${payload.deposits}
+Total Sales = ${payload.totalSales}
+
+💳 COLLECTION DETAILS
+Cash: ${payload.cash}
+UPI: ${payload.upi}
+Bajaj: ${payload.bajaj}
+Card: ${payload.card}
+Prev. Credit Note: ${payload.prevCN}
+Total Collection = ${payload.totalColl}
+
+📉 ADJUSTMENT INFO
+CN Issued (RG): ${payload.cnRG}
+B2B Credit Sale: ${payload.b2bCS}
+
+⭐ GRAND TOTAL = ${payload.totalColl}
+------------------------------`;
+
             window.location.href = `https://wa.me/?text=${encodeURIComponent(msg)}`;
         });
     }
